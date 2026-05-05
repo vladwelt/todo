@@ -6,17 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Google Tasks-style to-do app built with **React Native** and **Expo**. The goal is to replicate the core UX of Google Tasks: task lists, subtasks, due dates, and a clean bottom-sheet/modal-driven UI.
 
-## Getting Started
+## Setup
 
-The project has not been scaffolded yet. When initializing:
+After cloning, install dependencies:
 
 ```bash
-npx create-expo-app@latest . --template blank-typescript
+npm install
 ```
 
 ## Commands
-
-Once the project is initialized:
 
 ```bash
 # Start the dev server (opens Expo Go on device or simulator)
@@ -41,21 +39,31 @@ npx jest
 npx jest path/to/file.test.ts
 ```
 
-## Intended Architecture
+## Architecture
 
 ```
-app/               # Expo Router file-based routes (screens)
-  (tabs)/          # Bottom tab navigator
-    index.tsx      # "My Tasks" default list
-    lists.tsx      # All task lists view
-  task/[id].tsx    # Task detail / edit screen
-components/        # Shared UI components (TaskItem, ListCard, FAB, etc.)
-store/             # Global state (Zustand or Context + useReducer)
-  tasks.ts         # Task CRUD actions and selectors
-  lists.ts         # List management
-hooks/             # Custom hooks (useTaskList, useDueDatePicker, etc.)
-lib/               # Pure utilities (date formatting, sorting helpers)
-constants/         # Theme colors, spacing, typography
+app/
+  _layout.tsx          # Root layout — wraps tree in GestureHandlerRootView
+  (tabs)/
+    _layout.tsx        # Tab bar (Tasks / Lists)
+    index.tsx          # Active-list task screen
+    lists.tsx          # All task lists
+components/
+  TaskItem.tsx         # Single task row with checkbox, metadata, delete
+  AddTaskSheet.tsx     # @gorhom/bottom-sheet quick-add (forwardRef)
+  FAB.tsx              # Floating action button
+  EmptyState.tsx       # Zero-task placeholder
+store/
+  tasks.ts             # Zustand slice — CRUD + subtask actions
+  lists.ts             # Zustand slice — list management, activeListId
+hooks/
+  useTaskList.ts       # Derives activeTasks / completedTasks for active list
+lib/
+  utils.ts             # formatDueDate, isDueOrOverdue
+constants/
+  theme.ts             # Colors, Spacing, FontSize tokens
+types/
+  index.ts             # Task, Subtask, TaskList interfaces
 ```
 
 ## State Management
@@ -94,13 +102,23 @@ interface Subtask {
 }
 ```
 
+## Key Patterns
+
+### State flow
+`useListsStore` owns `lists[]` and `activeListId`. `useTasksStore` owns `tasks[]`. The `useTaskList` hook derives `activeTasks` / `completedTasks` for the current list — always use this hook in screens rather than filtering inline. Both stores persist to `AsyncStorage` via Zustand's `persist` middleware.
+
+### AddTaskSheet
+Uses `forwardRef<BottomSheet, Props>` so the parent can call `bottomSheetRef.current?.expand()` from the FAB press handler. Opened with `index={-1}` (closed) and expands to `40%`.
+
+### Completed tasks
+Active tasks render first. A collapsible "Completed (N)" toggle button is shown in `ListFooterComponent`. When expanded, completed tasks append to the same `FlatList` data array — no separate list or section.
+
 ## UI Conventions
 
-- Follow Google Tasks visual language: white background, blue accent (`#1a73e8`), Roboto-style text hierarchy.
-- Completed tasks collapse below active tasks within the same list, separated by a "Completed" section header.
-- Swipe-to-complete and swipe-to-delete on task rows (use `react-native-gesture-handler`).
-- The FAB (`+`) opens a quick-add bottom sheet; tapping a task row opens the full detail modal.
-- Dark mode is supported via `useColorScheme` from `react-native`.
+- Color tokens are in `constants/theme.ts`. Primary blue is `#1a73e8`.
+- All icons are `MaterialIcons` from `@expo/vector-icons`.
+- `GestureHandlerRootView` is at the root (`app/_layout.tsx`). Do not add it again in child components.
+- The default list (`id: 'default'`, title `'My Tasks'`) is pre-seeded and cannot be deleted.
 
 ## Dependencies to Use
 
